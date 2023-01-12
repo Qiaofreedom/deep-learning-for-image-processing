@@ -30,18 +30,18 @@ class AlexNet(nn.Module):
             nn.Linear(2048, num_classes),
         )
         if init_weights:
-            self._initialize_weights()
+            self._initialize_weights()  # 初始化权重函数
 
-    def forward(self, x):
+    def forward(self, x): # 定义正向传播过程
         x = self.features(x)
-        x = torch.flatten(x, start_dim=1)
+        x = torch.flatten(x, start_dim=1) # pytorch 的维度是【N,C,W,H】.batch是不去动他的
         x = self.classifier(x)
         return x
 
     def _initialize_weights(self):
-        for m in self.modules():
+        for m in self.modules(): # self.modules() 继承自 nn.Module这个父类。会返回一个迭代器。迭代 self.features 中的每个层结构
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu') # 初始变量 方法。对权重初始化
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
