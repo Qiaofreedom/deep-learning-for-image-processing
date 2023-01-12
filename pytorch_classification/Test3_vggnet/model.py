@@ -69,10 +69,10 @@ cfgs = {
     'vgg19': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
 }
 
-
+# 实例vgg网络
 def vgg(model_name="vgg16", **kwargs): # **kwargs 指可变长度的字典变量
     assert model_name in cfgs, "Warning: model number {} not in cfgs dict!".format(model_name)
     cfg = cfgs[model_name]
 
-    model = VGG(make_features(cfg), **kwargs)
+    model = VGG(make_features(cfg), **kwargs) #通过上面的类VGG来实例化vgg网络
     return model
