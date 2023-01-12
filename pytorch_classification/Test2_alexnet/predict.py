@@ -33,7 +33,7 @@ def main():
     assert os.path.exists(json_path), "file: '{}' dose not exist.".format(json_path)
 
     with open(json_path, "r") as f:
-        class_indict = json.load(f)
+        class_indict = json.load(f) #把Json文件读成字典
 
     # create model
     model = AlexNet(num_classes=5).to(device)
