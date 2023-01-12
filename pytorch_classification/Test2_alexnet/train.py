@@ -26,7 +26,7 @@ def main():
                                    transforms.ToTensor(),
                                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])}
 
-    data_root = os.path.abspath(os.path.join(os.getcwd(), "../.."))  # get data root path
+    data_root = os.path.abspath(os.path.join(os.getcwd(), "../.."))  # get data root path。 ..表示上层目录，../..表示上上层目录
     image_path = os.path.join(data_root, "data_set", "flower_data")  # flower data set path
     assert os.path.exists(image_path), "{} path does not exist.".format(image_path)
     train_dataset = datasets.ImageFolder(root=os.path.join(image_path, "train"),
@@ -35,7 +35,7 @@ def main():
 
     # {'daisy':0, 'dandelion':1, 'roses':2, 'sunflower':3, 'tulips':4}
     flower_list = train_dataset.class_to_idx
-    cla_dict = dict((val, key) for key, val in flower_list.items())
+    cla_dict = dict((val, key) for key, val in flower_list.items()) # 把key 和val 反转。'daisy':0 变成 0:'daisy'
     # write dict into json file
     json_str = json.dumps(cla_dict, indent=4)
     with open('class_indices.json', 'w') as json_file:
@@ -47,7 +47,7 @@ def main():
 
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=batch_size, shuffle=True,
-                                               num_workers=nw)
+                                               num_workers=nw) #在windows系统下，num_workers只能等于0.Linux可以设置其他
 
     validate_dataset = datasets.ImageFolder(root=os.path.join(image_path, "val"),
                                             transform=data_transform["val"])
@@ -58,6 +58,7 @@ def main():
 
     print("using {} images for training, {} images for validation.".format(train_num,
                                                                            val_num))
+    # 查看数据集的代码
     # test_data_iter = iter(validate_loader)
     # test_image, test_label = test_data_iter.next()
     #
@@ -72,7 +73,7 @@ def main():
 
     net = AlexNet(num_classes=5, init_weights=True)
 
-    net.to(device)
+    net.to(device) # 讲网络指定到设备上
     loss_function = nn.CrossEntropyLoss()
     # pata = list(net.parameters())
     optimizer = optim.Adam(net.parameters(), lr=0.0002)
@@ -83,16 +84,16 @@ def main():
     train_steps = len(train_loader)
     for epoch in range(epochs):
         # train
-        net.train()
+        net.train() # 只在训练中使用 dropout 方法。所以用 net.train()和net.eval()来管理
         running_loss = 0.0
         train_bar = tqdm(train_loader, file=sys.stdout)
         for step, data in enumerate(train_bar):
             images, labels = data
-            optimizer.zero_grad()
+            optimizer.zero_grad() #清空之前的梯度信息
             outputs = net(images.to(device))
             loss = loss_function(outputs, labels.to(device))
-            loss.backward()
-            optimizer.step()
+            loss.backward() #将损失反向传播到每个节点中
+            optimizer.step() # 更新每个节点的参数
 
             # print statistics
             running_loss += loss.item()
@@ -104,13 +105,14 @@ def main():
         # validate
         net.eval()
         acc = 0.0  # accumulate accurate number / epoch
-        with torch.no_grad():
+        with torch.no_grad(): # 在验证过程中不计算损失梯度
             val_bar = tqdm(validate_loader, file=sys.stdout)
             for val_data in val_bar:
                 val_images, val_labels = val_data
                 outputs = net(val_images.to(device))
                 predict_y = torch.max(outputs, dim=1)[1]
-                acc += torch.eq(predict_y, val_labels.to(device)).sum().item()
+                acc += torch.eq(predict_y, val_labels.to(device)).sum().item() # to(device)之前把数据存在了GPU中，所以如果有GPU，在GPU里面做运算速度更快
+                # .item()是之前是张量，这里可以取出标量（数值）
 
         val_accurate = acc / val_num
         print('[epoch %d] train_loss: %.3f  val_accuracy: %.3f' %
