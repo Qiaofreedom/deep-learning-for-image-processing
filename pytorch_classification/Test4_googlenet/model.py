@@ -6,7 +6,7 @@ import torch.nn.functional as F
 class GoogLeNet(nn.Module):
     def __init__(self, num_classes=1000, aux_logits=True, init_weights=False):
         super(GoogLeNet, self).__init__()
-        self.aux_logits = aux_logits
+        self.aux_logits = aux_logits # 是否使用辅助分类器
 
         self.conv1 = BasicConv2d(3, 64, kernel_size=7, stride=2, padding=3)
         self.maxpool1 = nn.MaxPool2d(3, stride=2, ceil_mode=True)
@@ -30,10 +30,10 @@ class GoogLeNet(nn.Module):
         self.inception5b = Inception(832, 384, 192, 384, 48, 128, 128)
 
         if self.aux_logits:
-            self.aux1 = InceptionAux(512, num_classes)
-            self.aux2 = InceptionAux(528, num_classes)
+            self.aux1 = InceptionAux(512, num_classes) #辅助分类器1
+            self.aux2 = InceptionAux(528, num_classes) #辅助分类器2
 
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1)) #自适应池化操作。不管输入的高宽，最后都是1*1      
         self.dropout = nn.Dropout(0.4)
         self.fc = nn.Linear(1024, num_classes)
         if init_weights:
@@ -83,7 +83,7 @@ class GoogLeNet(nn.Module):
 
         x = self.avgpool(x)
         # N x 1024 x 1 x 1
-        x = torch.flatten(x, 1)
+        x = torch.flatten(x, 1) #代表是从 深度 这个维度进行展平的
         # N x 1024
         x = self.dropout(x)
         x = self.fc(x)
@@ -132,8 +132,8 @@ class Inception(nn.Module):
         branch3 = self.branch3(x)
         branch4 = self.branch4(x)
 
-        outputs = [branch1, branch2, branch3, branch4]
-        return torch.cat(outputs, 1)
+        outputs = [branch1, branch2, branch3, branch4] #输出特征矩阵的一个列表
+        return torch.cat(outputs, 1) # 是在深度 这个维度上进行合并
 
 
 class InceptionAux(nn.Module):
@@ -151,8 +151,8 @@ class InceptionAux(nn.Module):
         # aux1: N x 512 x 4 x 4, aux2: N x 528 x 4 x 4
         x = self.conv(x)
         # N x 128 x 4 x 4
-        x = torch.flatten(x, 1)
-        x = F.dropout(x, 0.5, training=self.training)
+        x = torch.flatten(x, 1) # 在深度 这个维度上进行展平
+        x = F.dropout(x, 0.5, training=self.training) #按照50%的比例进行失活
         # N x 2048
         x = F.relu(self.fc1(x), inplace=True)
         x = F.dropout(x, 0.5, training=self.training)
