@@ -35,13 +35,15 @@ def main():
         class_indict = json.load(f)
 
     # create model
-    model = GoogLeNet(num_classes=5, aux_logits=False).to(device)
+    model = GoogLeNet(num_classes=5, aux_logits=False).to(device) # 表示不会使用辅助分类器
 
     # load model weights
     weights_path = "./googleNet.pth"
     assert os.path.exists(weights_path), "file: '{}' dose not exist.".format(weights_path)
     missing_keys, unexpected_keys = model.load_state_dict(torch.load(weights_path, map_location=device),
-                                                          strict=False)
+                                                          strict=False) 
+    #strict=False 表示载入模型和现有的权重模型不需要精准匹配。因为预测过程不需要两个辅助分类器，
+    #但是训练过程保存了辅助分类器。unexpected_keys里面是那两个辅助分类层的东西
 
     model.eval()
     with torch.no_grad():
