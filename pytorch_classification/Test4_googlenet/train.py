@@ -96,7 +96,7 @@ def main():
             loss2 = loss_function(aux_logits2, labels.to(device))
             loss = loss0 + loss1 * 0.3 + loss2 * 0.3
             loss.backward()
-            optimizer.step()
+            optimizer.step() #用优化器更新模型参数
 
             # print statistics
             running_loss += loss.item()
