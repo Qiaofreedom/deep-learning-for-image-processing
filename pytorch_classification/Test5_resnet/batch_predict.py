@@ -7,6 +7,7 @@ from torchvision import transforms
 
 from model import resnet34
 
+#将多张图片打包成一个BATCH，一次性输入
 
 def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
