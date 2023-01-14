@@ -49,7 +49,7 @@ def main():
         # predict class
         output = torch.squeeze(model(img.to(device))).cpu()
         predict = torch.softmax(output, dim=0)
-        predict_cla = torch.argmax(predict).numpy()
+        predict_cla = torch.argmax(predict).numpy()  #最大类别索引
 
     print_res = "class: {}   prob: {:.3}".format(class_indict[str(predict_cla)],
                                                  predict[predict_cla].numpy())
