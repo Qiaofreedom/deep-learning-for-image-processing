@@ -19,7 +19,7 @@ def main():
         "train": transforms.Compose([transforms.RandomResizedCrop(224),
                                      transforms.RandomHorizontalFlip(),
                                      transforms.ToTensor(),
-                                     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])]),
+                                     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])]),  #标准化处理
         "val": transforms.Compose([transforms.Resize(256),
                                    transforms.CenterCrop(224),
                                    transforms.ToTensor(),
@@ -59,6 +59,8 @@ def main():
                                                                            val_num))
     
     net = resnet34()
+    net.to(device)
+ ######################################### 如果使用迁移学习，则用以下的东西，如果不使用， net = resnet34(num_classes=*)  
     # load pretrain weights
     # download url: https://download.pytorch.org/models/resnet34-333f7ec4.pth
     model_weight_path = "./resnet34-pre.pth"
@@ -68,9 +70,9 @@ def main():
     #     param.requires_grad = False
 
     # change fc layer structure
-    in_channel = net.fc.in_features
+    in_channel = net.fc.in_features   #用的预训练的分类数，这个地方是1000.所以需要再用一个 net.fc
     net.fc = nn.Linear(in_channel, 5)
-    net.to(device)
+ ##########################################
 
     # define loss function
     loss_function = nn.CrossEntropyLoss()
@@ -106,7 +108,7 @@ def main():
         # validate
         net.eval()
         acc = 0.0  # accumulate accurate number / epoch
-        with torch.no_grad():
+        with torch.no_grad(): #不对损失剃度进行跟踪
             val_bar = tqdm(validate_loader, file=sys.stdout)
             for val_data in val_bar:
                 val_images, val_labels = val_data
