@@ -35,7 +35,7 @@ class InvertedResidual(nn.Module):
         self.use_shortcut = stride == 1 and in_channel == out_channel
 
         layers = []
-        if expand_ratio != 1:
+        if expand_ratio != 1:  # 第一个 bottleneck 是没有1*1卷积降升维的。因为 t = 1
             # 1x1 pointwise conv
             layers.append(ConvBNReLU(in_channel, hidden_channel, kernel_size=1))
         layers.extend([
@@ -97,14 +97,14 @@ class MobileNetV2(nn.Module):
 
         # weight initialization
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, nn.Conv2d): # 子模块是卷积层
                 nn.init.kaiming_normal_(m.weight, mode='fan_out')
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.BatchNorm2d):
+            elif isinstance(m, nn.BatchNorm2d): #子模块是BN层
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.Linear):
+            elif isinstance(m, nn.Linear): #子模块是全连接层
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.zeros_(m.bias)
 
