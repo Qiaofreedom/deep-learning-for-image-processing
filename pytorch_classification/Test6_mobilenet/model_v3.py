@@ -175,7 +175,7 @@ class MobileNetV3(nn.Module):
             layers.append(block(cnf, norm_layer))
 
         # building last several layers
-        lastconv_input_c = inverted_residual_setting[-1].out_c
+        lastconv_input_c = inverted_residual_setting[-1].out_c # output 的channel
         lastconv_output_c = 6 * lastconv_input_c
         layers.append(ConvBNActivation(lastconv_input_c,
                                        lastconv_output_c,
