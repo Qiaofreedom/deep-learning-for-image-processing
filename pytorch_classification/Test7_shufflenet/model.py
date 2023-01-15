@@ -14,7 +14,7 @@ def channel_shuffle(x: Tensor, groups: int) -> Tensor:
     # [batch_size, num_channels, height, width] -> [batch_size, groups, channels_per_group, height, width]
     x = x.view(batch_size, groups, channels_per_group, height, width)
 
-    x = torch.transpose(x, 1, 2).contiguous()
+    x = torch.transpose(x, 1, 2).contiguous() #转化成内存中连续的数据
 
     # flatten
     x = x.view(batch_size, -1, height, width)
@@ -71,10 +71,10 @@ class InvertedResidual(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         if self.stride == 1:
-            x1, x2 = x.chunk(2, dim=1)
+            x1, x2 = x.chunk(2, dim=1) #均分
             out = torch.cat((x1, self.branch2(x2)), dim=1)
         else:
-            out = torch.cat((self.branch1(x), self.branch2(x)), dim=1)
+            out = torch.cat((self.branch1(x), self.branch2(x)), dim=1) #在channel 维度上拼接
 
         out = channel_shuffle(out, 2)
 
@@ -83,8 +83,8 @@ class InvertedResidual(nn.Module):
 
 class ShuffleNetV2(nn.Module):
     def __init__(self,
-                 stages_repeats: List[int],
-                 stages_out_channels: List[int],
+                 stages_repeats: List[int], # 4，8，4
+                 stages_out_channels: List[int], # 一共五个，3个stage, 一上一下两个卷积。这里是指输出的channel.24,116,232,464,1024
                  num_classes: int = 1000,
                  inverted_residual: Callable[..., nn.Module] = InvertedResidual):
         super(ShuffleNetV2, self).__init__()
@@ -119,7 +119,7 @@ class ShuffleNetV2(nn.Module):
             seq = [inverted_residual(input_channels, output_channels, 2)]
             for i in range(repeats - 1):
                 seq.append(inverted_residual(output_channels, output_channels, 1))
-            setattr(self, name, nn.Sequential(*seq))
+            setattr(self, name, nn.Sequential(*seq)) #给self设置一个变量name, name的值是 nn.Sequential(*seq)
             input_channels = output_channels
 
         output_channels = self._stage_out_channels[-1]
@@ -139,7 +139,7 @@ class ShuffleNetV2(nn.Module):
         x = self.stage3(x)
         x = self.stage4(x)
         x = self.conv5(x)
-        x = x.mean([2, 3])  # global pool
+        x = x.mean([2, 3])  # global pool.【2，3】对应的是高度宽度这两个维度
         x = self.fc(x)
         return x
 
