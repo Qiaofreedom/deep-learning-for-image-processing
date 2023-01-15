@@ -101,7 +101,7 @@ class MobileNetV2(nn.Module):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out')
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-            elif isinstance(m, nn.BatchNorm2d): #子模块是BN层
+            elif isinstance(m, nn.BatchNorm2d): #子模块是BN层。如果用BN层，则不需要bias。因为用了和没用结果一样
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
             elif isinstance(m, nn.Linear): #子模块是全连接层
