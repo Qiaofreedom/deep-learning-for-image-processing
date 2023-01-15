@@ -73,7 +73,7 @@ def main():
     pre_dict = {k: v for k, v in pre_weights.items() if net.state_dict()[k].numel() == v.numel()}
     missing_keys, unexpected_keys = net.load_state_dict(pre_dict, strict=False)
 
-    # freeze features weights 冻结特征提取部分的所有权重,只训练全连接层。如果没有 .features 则会是全部网络的权重
+    # freeze features weights 冻结特征提取部分的所有权重,只训练全连接层。如果没有 .features 则会是全部网络的权重。如果训练整个网络可以得到更好的结果
     for param in net.features.parameters():
         param.requires_grad = False # 这样不会进行求导
 
