@@ -124,9 +124,10 @@ if __name__ == '__main__':
 
     # shufflenetv2_x1.0 官方权重下载地址
     # https://download.pytorch.org/models/shufflenetv2_x1-5666bf0f80.pth
-    parser.add_argument('--weights', type=str, default='./shufflenetv2_x1.pth',
+    parser.add_argument('--weights', type=str, default='./shufflenetv2_x1.pth',  #如果 defult 为空，则重头开始训练
                         help='initial weights path')
-    parser.add_argument('--freeze-layers', type=bool, default=False)
+    parser.add_argument('--freeze-layers', type=bool, default=False) #如果default为false,就会去训练所有的层结构。如果重头开始，要把上面一行的 权重删掉，还要把这里的变为false
+    # 如果default是true,则只训练最后一层全连接层
     parser.add_argument('--device', default='cuda:0', help='device id (i.e. 0 or 0,1 or cpu)')
 
     opt = parser.parse_args()
