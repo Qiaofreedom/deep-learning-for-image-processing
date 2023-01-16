@@ -75,7 +75,7 @@ def main():
 
     # freeze features weights 冻结特征提取部分的所有权重,只训练全连接层。如果没有 .features 则会是全部网络的权重。如果训练整个网络可以得到更好的结果
     for param in net.features.parameters():
-        param.requires_grad = False # 这样不会进行求导
+        param.requires_grad = False # 冻结特征提取部分的所有权重，这样不会进行求导
 
     net.to(device)
 
@@ -83,7 +83,7 @@ def main():
     loss_function = nn.CrossEntropyLoss()
 
     # construct an optimizer
-    params = [p for p in net.parameters() if p.requires_grad]
+    params = [p for p in net.parameters() if p.requires_grad] # p是网络的所有参数权重，if p.requires_grad指没有被冻结
     optimizer = optim.Adam(params, lr=0.0001)
 
     best_acc = 0.0
