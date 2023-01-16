@@ -140,13 +140,15 @@ class InvertedResidual(nn.Module):
         if cnf.stride not in [1, 2]:
             raise ValueError("illegal stride value.")
 
-        self.use_res_connect = (cnf.stride == 1 and cnf.input_c == cnf.out_c)
+        self.use_res_connect = (cnf.stride == 1 and cnf.input_c == cnf.out_c) # cnf.stride=1说明DW的stride=1.说明输入特征矩阵的高和宽不会变化
+        # cnf.input_c == cnf.out_c 说明输入和输出矩阵的 channel 保持不变
+        # 两个条件都满足，说明输入和输出矩阵的shape是一样的，可以是用 shortcut
 
         layers = OrderedDict()
         activation_layer = nn.SiLU  # alias Swish
 
         # expand.搭建第一个1*1的卷积层
-        if cnf.expanded_c != cnf.input_c:
+        if cnf.expanded_c != cnf.input_c: # 如果expanded_c=1.则不需要走这一步
             layers.update({"expand_conv": ConvBNActivation(cnf.input_c, #第一个特征矩阵的输入channel
                                                            cnf.expanded_c, #第一个特征矩阵的输出channel
                                                            kernel_size=1,
@@ -230,20 +232,22 @@ class EfficientNet(nn.Module):
         # build inverted_residual_setting
         bneck_conf = partial(InvertedResidualConfig,
                              width_coefficient=width_coefficient) #为 InvertedResidualConfig的配置文件 传递默认参数 width_coefficient
-        # 构建所有MB的配置文件
+        
+        # 构建所有MB模块的配置文件
         b = 0
-        num_blocks = float(sum(round_repeats(i[-1]) for i in default_cnf))
+        num_blocks = float(sum(round_repeats(i[-1]) for i in default_cnf)) # 当前EfficientNet里面的重复MB网络的数字
         inverted_residual_setting = [] #存储所有MB模块的配置文件
         for stage, args in enumerate(default_cnf): #遍历每一个stage
             cnf = copy.copy(args) #不影响原数据，进行复制
             for i in range(round_repeats(cnf.pop(-1))): #遍历每一个stage 里面的MB模块。pop以后原列表就没有那个元素了。round_repeats记录需要重复mb模块多少次
-                if i > 0: #i=0对应第一个mb模块
+                if i > 0: #i=0时对应第一个mb模块，i > 0时 所有的MB模块的strides=1.也就是说每个stage里面， 第一个MB的stide通过读表得到，其他的MB每个stride=1
                     # strides equal 1 except first cnf
                     cnf[-3] = 1  # strides
                     cnf[1] = cnf[2]  # input_channel equal output_channel
 
-                cnf[-1] = args[-2] * b / num_blocks  # update dropout ratio
-                index = str(stage + 1) + chr(i + 97)  # 1a, 2a, 2b, ...
+                cnf[-1] = args[-2] * b / num_blocks  # update dropout ratio。因为pop弹出去以后，最后一个元素就是 drop_connect_rate
+                index = str(stage + 1) + chr(i + 97)  # 1a, 2a, 2b, ...注意这里的stage是从 对应原论文里面的stage2开始的 .但是这里的stage是从零开始
+                # chr(i + 97)是指字符
                 inverted_residual_setting.append(bneck_conf(*cnf, index))
                 b += 1
 
@@ -256,7 +260,7 @@ class EfficientNet(nn.Module):
                                                      kernel_size=3,
                                                      stride=2,
                                                      norm_layer=norm_layer)})
-
+        # 搭建出所有的MB 结构
         # building inverted residual blocks
         for cnf in inverted_residual_setting:
             layers.update({cnf.index: block(cnf, norm_layer)})
@@ -269,9 +273,10 @@ class EfficientNet(nn.Module):
                                                kernel_size=1,
                                                norm_layer=norm_layer)})
 
-        self.features = nn.Sequential(layers)
-        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        self.features = nn.Sequential(layers) #对应stage1到stage8加上最后一个卷积层
+        self.avgpool = nn.AdaptiveAvgPool2d(1) #池化层
 
+        # 这里搭建pooling和全卷积层
         classifier = []
         if dropout_rate > 0:
             classifier.append(nn.Dropout(p=dropout_rate, inplace=True))
