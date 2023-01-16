@@ -10,7 +10,7 @@ from torch import Tensor
 from torch.nn import functional as F
 
 
-def _make_divisible(ch, divisor=8, min_ch=None):
+def _make_divisible(ch, divisor=8, min_ch=None): #保证是8的倍数，对计算机运行更有利
     """
     This function is taken from the original tf repo.
     It ensures that all layers have a channel number that is divisible by 8
@@ -65,7 +65,7 @@ class ConvBNActivation(nn.Sequential):
                  kernel_size: int = 3,
                  stride: int = 1,
                  groups: int = 1,
-                 norm_layer: Optional[Callable[..., nn.Module]] = None,
+                 norm_layer: Optional[Callable[..., nn.Module]] = None, #这里是BN层
                  activation_layer: Optional[Callable[..., nn.Module]] = None):
         padding = (kernel_size - 1) // 2
         if norm_layer is None:
@@ -111,7 +111,7 @@ class InvertedResidualConfig:
                  kernel: int,          # 3 or 5
                  input_c: int,
                  out_c: int,
-                 expanded_ratio: int,  # 1 or 6
+                 expanded_ratio: int,  # 1 or 6 。第一个卷积层
                  stride: int,          # 1 or 2
                  use_se: bool,         # True
                  drop_rate: float,
@@ -145,10 +145,10 @@ class InvertedResidual(nn.Module):
         layers = OrderedDict()
         activation_layer = nn.SiLU  # alias Swish
 
-        # expand
+        # expand.搭建第一个1*1的卷积层
         if cnf.expanded_c != cnf.input_c:
-            layers.update({"expand_conv": ConvBNActivation(cnf.input_c,
-                                                           cnf.expanded_c,
+            layers.update({"expand_conv": ConvBNActivation(cnf.input_c, #第一个特征矩阵的输入channel
+                                                           cnf.expanded_c, #第一个特征矩阵的输出channel
                                                            kernel_size=1,
                                                            norm_layer=norm_layer,
                                                            activation_layer=activation_layer)})
@@ -158,7 +158,7 @@ class InvertedResidual(nn.Module):
                                                   cnf.expanded_c,
                                                   kernel_size=cnf.kernel,
                                                   stride=cnf.stride,
-                                                  groups=cnf.expanded_c,
+                                                  groups=cnf.expanded_c, #DW卷积group数和channel数相同
                                                   norm_layer=norm_layer,
                                                   activation_layer=activation_layer)})
 
@@ -166,12 +166,12 @@ class InvertedResidual(nn.Module):
             layers.update({"se": SqueezeExcitation(cnf.input_c,
                                                    cnf.expanded_c)})
 
-        # project
+        # project 最后那个1 * 1的卷积层
         layers.update({"project_conv": ConvBNActivation(cnf.expanded_c,
                                                         cnf.out_c,
                                                         kernel_size=1,
                                                         norm_layer=norm_layer,
-                                                        activation_layer=nn.Identity)})
+                                                        activation_layer=nn.Identity)}) #identity是不做任何处理的意思。就是没有激活函数
 
         self.block = nn.Sequential(layers)
         self.out_channels = cnf.out_c
@@ -181,7 +181,7 @@ class InvertedResidual(nn.Module):
         if self.use_res_connect and cnf.drop_rate > 0:
             self.dropout = DropPath(cnf.drop_rate)
         else:
-            self.dropout = nn.Identity()
+            self.dropout = nn.Identity() #不做任何处理
 
     def forward(self, x: Tensor) -> Tensor:
         result = self.block(x)
@@ -197,14 +197,15 @@ class EfficientNet(nn.Module):
                  width_coefficient: float,
                  depth_coefficient: float,
                  num_classes: int = 1000,
-                 dropout_rate: float = 0.2,
-                 drop_connect_rate: float = 0.2,
-                 block: Optional[Callable[..., nn.Module]] = None,
+                 dropout_rate: float = 0.2, # stage9里面的 最后一个全连接层前面的droupout层的失活
+                 drop_connect_rate: float = 0.2, # MB模块里面的droupout层失活的比例
+                 block: Optional[Callable[..., nn.Module]] = None, #MB模块
                  norm_layer: Optional[Callable[..., nn.Module]] = None
                  ):
         super(EfficientNet, self).__init__()
 
-        # kernel_size, in_channel, out_channel, exp_ratio, strides, use_SE, drop_connect_rate, repeats
+        # kernel_size, in_channel, out_channel, exp_ratio, strides, use_SE, drop_connect_rate, repeats（对应原论文表格里面的layers）
+        # stage2到stage8的网络参数
         default_cnf = [[3, 32, 16, 1, 1, True, drop_connect_rate, 1],
                        [3, 16, 24, 6, 2, True, drop_connect_rate, 2],
                        [5, 24, 40, 6, 2, True, drop_connect_rate, 2],
@@ -223,20 +224,20 @@ class EfficientNet(nn.Module):
         if norm_layer is None:
             norm_layer = partial(nn.BatchNorm2d, eps=1e-3, momentum=0.1)
 
-        adjust_channels = partial(InvertedResidualConfig.adjust_channels,
-                                  width_coefficient=width_coefficient)
+        adjust_channels = partial(InvertedResidualConfig.adjust_channels, #为 InvertedResidualConfig.adjust_channels的配置文件 传递默认参数 width_coefficient
+                                  width_coefficient=width_coefficient) 
 
         # build inverted_residual_setting
         bneck_conf = partial(InvertedResidualConfig,
-                             width_coefficient=width_coefficient)
-
+                             width_coefficient=width_coefficient) #为 InvertedResidualConfig的配置文件 传递默认参数 width_coefficient
+        # 构建所有MB的配置文件
         b = 0
         num_blocks = float(sum(round_repeats(i[-1]) for i in default_cnf))
-        inverted_residual_setting = []
-        for stage, args in enumerate(default_cnf):
-            cnf = copy.copy(args)
-            for i in range(round_repeats(cnf.pop(-1))):
-                if i > 0:
+        inverted_residual_setting = [] #存储所有MB模块的配置文件
+        for stage, args in enumerate(default_cnf): #遍历每一个stage
+            cnf = copy.copy(args) #不影响原数据，进行复制
+            for i in range(round_repeats(cnf.pop(-1))): #遍历每一个stage 里面的MB模块。pop以后原列表就没有那个元素了。round_repeats记录需要重复mb模块多少次
+                if i > 0: #i=0对应第一个mb模块
                     # strides equal 1 except first cnf
                     cnf[-3] = 1  # strides
                     cnf[1] = cnf[2]  # input_channel equal output_channel
