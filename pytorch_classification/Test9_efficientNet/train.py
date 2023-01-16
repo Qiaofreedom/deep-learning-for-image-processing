@@ -82,14 +82,14 @@ def main(args):
         else:
             raise FileNotFoundError("not found weights file: {}".format(args.weights))
 
-    # 是否冻结权重
+    # 是否冻结权重。如果是true,则只微调最后一个卷积层和全连接层
     if args.freeze_layers:
         for name, para in model.named_parameters():
             # 除最后一个卷积层和全连接层外，其他权重全部冻结
             if ("features.top" not in name) and ("classifier" not in name):
-                para.requires_grad_(False)
+                para.requires_grad_(False) # 其他权重全部冻结
             else:
-                print("training {}".format(name))
+                print("training {}".format(name)) #训练所有网络结构
 
     pg = [p for p in model.parameters() if p.requires_grad]
     optimizer = optim.SGD(pg, lr=args.lr, momentum=0.9, weight_decay=1E-4)
