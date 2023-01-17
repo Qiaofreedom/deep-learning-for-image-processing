@@ -61,7 +61,7 @@ class ConvBNAct(nn.Module):
                               kernel_size=kernel_size,
                               stride=stride,
                               padding=padding,
-                              groups=groups,
+                              groups=groups, # 如果groups=1,则正常卷积，如果groups=in_planes，则是DW卷积
                               bias=False)
 
         self.bn = norm_layer(out_planes)
@@ -77,18 +77,18 @@ class ConvBNAct(nn.Module):
 
 class SqueezeExcite(nn.Module):
     def __init__(self,
-                 input_c: int,   # block input channel
-                 expand_c: int,  # block expand channel
-                 se_ratio: float = 0.25):
+                 input_c: int,   # block input channel #对应输入MB模块的输入channel.不是SE模块的特征矩阵channel
+                 expand_c: int,  # block expand channel #输入到SE模块的特征矩阵channel。对应DW卷积的输出
+                 se_ratio: float = 0.25): # SE模块第一个卷积层的倍率。1/4。第二个卷积层会恢复到原来的channel数
         super(SqueezeExcite, self).__init__()
-        squeeze_c = int(input_c * se_ratio)
-        self.conv_reduce = nn.Conv2d(expand_c, squeeze_c, 1)
+        squeeze_c = int(input_c * se_ratio) 
+        self.conv_reduce = nn.Conv2d(expand_c, squeeze_c, 1) #第一个全连接层。用卷积层替代全连接层
         self.act1 = nn.SiLU()  # alias Swish
         self.conv_expand = nn.Conv2d(squeeze_c, expand_c, 1)
         self.act2 = nn.Sigmoid()
 
     def forward(self, x: Tensor) -> Tensor:
-        scale = x.mean((2, 3), keepdim=True)
+        scale = x.mean((2, 3), keepdim=True)  # 在tensor的高和宽。上求均值
         scale = self.conv_reduce(scale)
         scale = self.act1(scale)
         scale = self.conv_expand(scale)
@@ -96,7 +96,7 @@ class SqueezeExcite(nn.Module):
         return scale * x
 
 
-class MBConv(nn.Module):
+class MBConv(nn.Module): # MB模块
     def __init__(self,
                  kernel_size: int,
                  input_c: int,
@@ -114,29 +114,30 @@ class MBConv(nn.Module):
         self.has_shortcut = (stride == 1 and input_c == out_c)
 
         activation_layer = nn.SiLU  # alias Swish
-        expanded_c = input_c * expand_ratio
+        expanded_c = input_c * expand_ratio # expand_ratio指的是 论文表格里面的 MBConv4 和 MBConv6 里面的4和6
 
         # 在EfficientNetV2中，MBConv中不存在expansion=1的情况所以conv_pw肯定存在
         assert expand_ratio != 1
         # Point-wise expansion
+        # 搭建第一个1*1卷积
         self.expand_conv = ConvBNAct(input_c,
                                      expanded_c,
                                      kernel_size=1,
                                      norm_layer=norm_layer,
                                      activation_layer=activation_layer)
 
-        # Depth-wise convolution
+        # Depth-wise convolution DW卷积
         self.dwconv = ConvBNAct(expanded_c,
-                                expanded_c,
+                                expanded_c, #输入和输出的channel一样
                                 kernel_size=kernel_size,
                                 stride=stride,
-                                groups=expanded_c,
+                                groups=expanded_c, # group和 输入和输出的channel一样
                                 norm_layer=norm_layer,
                                 activation_layer=activation_layer)
 
         self.se = SqueezeExcite(input_c, expanded_c, se_ratio) if se_ratio > 0 else nn.Identity()
 
-        # Point-wise linear projection
+        # Point-wise linear projection 降维的1*1卷积
         self.project_conv = ConvBNAct(expanded_c,
                                       out_planes=out_c,
                                       kernel_size=1,
@@ -164,7 +165,7 @@ class MBConv(nn.Module):
         return result
 
 
-class FusedMBConv(nn.Module):
+class FusedMBConv(nn.Module): # MB模块的升级版本
     def __init__(self,
                  kernel_size: int,
                  input_c: int,
@@ -179,7 +180,7 @@ class FusedMBConv(nn.Module):
         assert stride in [1, 2]
         assert se_ratio == 0
 
-        self.has_shortcut = stride == 1 and input_c == out_c
+        self.has_shortcut = stride == 1 and input_c == out_c #同时满足两个条件才有捷径分支。
         self.drop_rate = drop_rate
 
         self.has_expansion = expand_ratio != 1
@@ -238,7 +239,7 @@ class EfficientNetV2(nn.Module):
     def __init__(self,
                  model_cnf: list,
                  num_classes: int = 1000,
-                 num_features: int = 1280,
+                 num_features: int = 1280, #要使用预训练权重，所以这个值根据源码定的
                  dropout_rate: float = 0.2,
                  drop_connect_rate: float = 0.2):
         super(EfficientNetV2, self).__init__()
@@ -259,7 +260,7 @@ class EfficientNetV2(nn.Module):
         total_blocks = sum([i[0] for i in model_cnf])
         block_id = 0
         blocks = []
-        for cnf in model_cnf:
+        for cnf in model_cnf: #每一行对应一个stage
             repeats = cnf[0]
             op = FusedMBConv if cnf[-2] == 0 else MBConv
             for i in range(repeats):
@@ -319,7 +320,8 @@ def efficientnetv2_s(num_classes: int = 1000):
     """
     # train_size: 300, eval_size: 384
 
-    # repeat, kernel, stride, expansion, in_c, out_c, operator, se_ratio
+    # repeat, kernel, stride, expansion_ratio, in_c, out_c, operator, se_ratio
+    # operator=0对应的是MB，operator=1对应的是 FuseMB
     model_config = [[2, 3, 1, 1, 24, 24, 0, 0],
                     [4, 3, 2, 4, 24, 48, 0, 0],
                     [4, 3, 2, 4, 48, 64, 0, 0],
@@ -329,7 +331,7 @@ def efficientnetv2_s(num_classes: int = 1000):
 
     model = EfficientNetV2(model_cnf=model_config,
                            num_classes=num_classes,
-                           dropout_rate=0.2)
+                           dropout_rate=0.2) # dropout_rate是pooling和最后一层FC之间的droupout
     return model
 
 
