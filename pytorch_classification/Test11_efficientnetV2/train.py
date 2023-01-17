@@ -77,7 +77,7 @@ def main(args):
         else:
             raise FileNotFoundError("not found weights file: {}".format(args.weights))
 
-    # 是否冻结权重
+    # 是否冻结权重.如果 args.freeze_layers= True,则冻结最后的1*1卷积和全连接层 以外的所有权重
     if args.freeze_layers:
         for name, para in model.named_parameters():
             # 除head外，其他权重全部冻结
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     # 链接: https://pan.baidu.com/s/1uZX36rvrfEss-JGj4yfzbQ  密码: 5gu1
     parser.add_argument('--weights', type=str, default='./pre_efficientnetv2-s.pth',
                         help='initial weights path')
-    parser.add_argument('--freeze-layers', type=bool, default=True)
+    parser.add_argument('--freeze-layers', type=bool, default=True) #使用预训练权重，则保留上面的.pth，另外这里要设置为True.如果不想用预训练的数据，则使用false
     parser.add_argument('--device', default='cuda:0', help='device id (i.e. 0 or 0,1 or cpu)')
 
     opt = parser.parse_args()
