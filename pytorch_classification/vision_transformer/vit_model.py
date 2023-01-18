@@ -2,6 +2,7 @@
 original code from rwightman:
 https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
 """
+# VIT 只有在非常大的数据集上进行预训练以后 这个模型效果才好
 from functools import partial
 from collections import OrderedDict
 
@@ -80,7 +81,7 @@ class Attention(nn.Module):
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim ** -0.5
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias) #3个放到一起了
         self.attn_drop = nn.Dropout(attn_drop_ratio)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop_ratio)
@@ -92,21 +93,21 @@ class Attention(nn.Module):
         # qkv(): -> [batch_size, num_patches + 1, 3 * total_embed_dim]
         # reshape: -> [batch_size, num_patches + 1, 3, num_heads, embed_dim_per_head]
         # permute: -> [3, batch_size, num_heads, num_patches + 1, embed_dim_per_head]
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4) #调整数据的顺序
         # [batch_size, num_heads, num_patches + 1, embed_dim_per_head]
         q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
 
         # transpose: -> [batch_size, num_heads, embed_dim_per_head, num_patches + 1]
         # @: multiply -> [batch_size, num_heads, num_patches + 1, num_patches + 1]
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
+        attn = (q @ k.transpose(-2, -1)) * self.scale # @ 矩阵乘法。每个header对应的Q和k相乘。只对最后两个维度进行矩阵相乘
+        attn = attn.softmax(dim=-1) #针对每一行的数据进行数据处理
         attn = self.attn_drop(attn)
 
         # @: multiply -> [batch_size, num_heads, num_patches + 1, embed_dim_per_head]
         # transpose: -> [batch_size, num_patches + 1, num_heads, embed_dim_per_head]
-        # reshape: -> [batch_size, num_patches + 1, total_embed_dim]
+        # reshape: -> [batch_size, num_patches + 1, total_embed_dim] #将最后两个维度的信息拼接在一起
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        x = self.proj(x)
+        x = self.proj(x) #全连接层
         x = self.proj_drop(x)
         return x
 
@@ -116,7 +117,7 @@ class Mlp(nn.Module):
     MLP as used in Vision Transformer, MLP-Mixer and related networks
     """
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
-        super().__init__()
+        super().__init__() #hidden_features第一个全连接层的节点个数，一般是in_features的4倍
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         self.fc1 = nn.Linear(in_features, hidden_features)
@@ -137,18 +138,18 @@ class Block(nn.Module):
     def __init__(self,
                  dim,
                  num_heads,
-                 mlp_ratio=4.,
+                 mlp_ratio=4., #第一个全连接层是输入节点的4倍
                  qkv_bias=False,
                  qk_scale=None,
-                 drop_ratio=0.,
-                 attn_drop_ratio=0.,
-                 drop_path_ratio=0.,
+                 drop_ratio=0., #mlt head self 全连接层后使用的drop_ratio
+                 attn_drop_ratio=0., #attention部分使用的 drop_ratio
+                 drop_path_ratio=0., # encoder block 里面使用的 drop_ratio
                  act_layer=nn.GELU,
                  norm_layer=nn.LayerNorm):
         super(Block, self).__init__()
-        self.norm1 = norm_layer(dim)
+        self.norm1 = norm_layer(dim) #第一个layernormer
         self.attn = Attention(dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-                              attn_drop_ratio=attn_drop_ratio, proj_drop_ratio=drop_ratio)
+                              attn_drop_ratio=attn_drop_ratio, proj_drop_ratio=drop_ratio) #实例化multihead attention这个模块
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path_ratio) if drop_path_ratio > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
@@ -156,8 +157,8 @@ class Block(nn.Module):
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop_ratio)
 
     def forward(self, x):
-        x = x + self.drop_path(self.attn(self.norm1(x)))
-        x = x + self.drop_path(self.mlp(self.norm2(x)))
+        x = x + self.drop_path(self.attn(self.norm1(x))) #encoder model的第一个部分
+        x = x + self.drop_path(self.mlp(self.norm2(x)))  #encoder model的第二个部分
         return x
 
 
@@ -174,12 +175,13 @@ class VisionTransformer(nn.Module):
             in_c (int): number of input channels
             num_classes (int): number of classes for classification head
             embed_dim (int): embedding dimension
-            depth (int): depth of transformer
+            depth (int): depth of transformer #重复堆叠encoder block的个数
             num_heads (int): number of attention heads
             mlp_ratio (int): ratio of mlp hidden dim to embedding dim
             qkv_bias (bool): enable bias for qkv if True
             qk_scale (float): override default qk scale of head_dim ** -0.5 if set
             representation_size (Optional[int]): enable and set representation layer (pre-logits) to this value if set
+            MLP head 全连接层的个数。pre-logits
             distilled (bool): model includes a distillation token and head as in DeiT models
             drop_ratio (float): dropout rate
             attn_drop_ratio (float): attention dropout rate
@@ -197,12 +199,12 @@ class VisionTransformer(nn.Module):
         self.patch_embed = embed_layer(img_size=img_size, patch_size=patch_size, in_c=in_c, embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
 
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim)) #创建一个可训练的参数
         self.dist_token = nn.Parameter(torch.zeros(1, 1, embed_dim)) if distilled else None
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
         self.pos_drop = nn.Dropout(p=drop_ratio)
 
-        dpr = [x.item() for x in torch.linspace(0, drop_path_ratio, depth)]  # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, drop_path_ratio, depth)]  # stochastic depth decay rule。这里是为了创造droupout ratio.这里用的是等比，递增 
         self.blocks = nn.Sequential(*[
             Block(dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
                   drop_ratio=drop_ratio, attn_drop_ratio=attn_drop_ratio, drop_path_ratio=dpr[i],
@@ -212,7 +214,7 @@ class VisionTransformer(nn.Module):
         self.norm = norm_layer(embed_dim)
 
         # Representation layer
-        if representation_size and not distilled:
+        if representation_size and not distilled: #传了representation就会构建 prelogits
             self.has_logits = True
             self.num_features = representation_size
             self.pre_logits = nn.Sequential(OrderedDict([
@@ -225,8 +227,8 @@ class VisionTransformer(nn.Module):
 
         # Classifier head(s)
         self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
-        self.head_dist = None
-        if distilled:
+        self.head_dist = None #和vit无关
+        if distilled: #和vit无关
             self.head_dist = nn.Linear(self.embed_dim, self.num_classes) if num_classes > 0 else nn.Identity()
 
         # Weight init
@@ -240,7 +242,7 @@ class VisionTransformer(nn.Module):
     def forward_features(self, x):
         # [B, C, H, W] -> [B, num_patches, embed_dim]
         x = self.patch_embed(x)  # [B, 196, 768]
-        # [1, 1, 768] -> [B, 1, 768]
+        # [1, 1, 768] -> [B, 1, 768] 在batchsize 维度复制 batchsize 份
         cls_token = self.cls_token.expand(x.shape[0], -1, -1)
         if self.dist_token is None:
             x = torch.cat((cls_token, x), dim=1)  # [B, 197, 768]
@@ -251,13 +253,13 @@ class VisionTransformer(nn.Module):
         x = self.blocks(x)
         x = self.norm(x)
         if self.dist_token is None:
-            return self.pre_logits(x[:, 0])
+            return self.pre_logits(x[:, 0]) #用切片提取数据。取所有的batch数据上的索引为0的数
         else:
             return x[:, 0], x[:, 1]
 
     def forward(self, x):
         x = self.forward_features(x)
-        if self.head_dist is not None:
+        if self.head_dist is not None: #这个地方不执行
             x, x_dist = self.head(x[0]), self.head_dist(x[1])
             if self.training and not torch.jit.is_scripting():
                 # during inference, return the average of both classifier predictions
@@ -295,7 +297,7 @@ def vit_base_patch16_224(num_classes: int = 1000):
     链接: https://pan.baidu.com/s/1zqb08naP0RPqqfSXfkB2EA  密码: eu9f
     """
     model = VisionTransformer(img_size=224,
-                              patch_size=16,
+                              patch_size=16, #patch_size越小计算量越大。但是效果越好
                               embed_dim=768,
                               depth=12,
                               num_heads=12,
