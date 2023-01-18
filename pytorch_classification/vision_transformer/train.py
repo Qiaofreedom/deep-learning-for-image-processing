@@ -73,7 +73,7 @@ def main(args):
             del weights_dict[k]
         print(model.load_state_dict(weights_dict, strict=False))
 
-    if args.freeze_layers:
+    if args.freeze_layers: #只训练MLP head里面的全连接层权重
         for name, para in model.named_parameters():
             # 除head, pre_logits外，其他权重全部冻结
             if "head" not in name and "pre_logits" not in name:
