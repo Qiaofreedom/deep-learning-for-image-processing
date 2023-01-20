@@ -59,6 +59,7 @@ def window_partition(x, window_size: int):
     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
     # permute: [B, H//Mh, Mh, W//Mw, Mw, C] -> [B, H//Mh, W//Mh, Mw, Mw, C]
     # view: [B, H//Mh, W//Mw, Mh, Mw, C] -> [B*num_windows, Mh, Mw, C]
+    #  contiguous： 把内存变成连续的
     windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
     return windows
 
@@ -75,7 +76,7 @@ def window_reverse(windows, window_size: int, H: int, W: int):
     Returns:
         x: (B, H, W, C)
     """
-    B = int(windows.shape[0] / (H * W / window_size / window_size))
+    B = int(windows.shape[0] / (H * W / window_size / window_size)) # H * W / window_size / window_size 指window的个数
     # view: [B*num_windows, Mh, Mw, C] -> [B, H//Mh, W//Mw, Mh, Mw, C]
     x = windows.view(B, H // window_size, W // window_size, window_size, window_size, -1)
     # permute: [B, H//Mh, W//Mw, Mh, Mw, C] -> [B, H//Mh, Mh, W//Mw, Mw, C]
@@ -166,7 +167,7 @@ class PatchMerging(nn.Module):
         return x
 
 
-class Mlp(nn.Module):
+class Mlp(nn.Module):  #MLPlock
     """ MLP as used in Vision Transformer, MLP-Mixer and related networks
     """
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -311,15 +312,15 @@ class SwinTransformerBlock(nn.Module):
         self.window_size = window_size
         self.shift_size = shift_size
         self.mlp_ratio = mlp_ratio
-        assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
+        assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"  # 如果大于0就是SWMSA
 
         self.norm1 = norm_layer(dim)
-        self.attn = WindowAttention(
+        self.attn = WindowAttention( #可能是WMSA，也可能是SWMSA
             dim, window_size=(self.window_size, self.window_size), num_heads=num_heads, qkv_bias=qkv_bias,
             attn_drop=attn_drop, proj_drop=drop)
 
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.norm2 = norm_layer(dim)
+        self.norm2 = norm_layer(dim) #layer norm 层
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
@@ -335,7 +336,7 @@ class SwinTransformerBlock(nn.Module):
         # pad feature maps to multiples of window size
         # 把feature map给pad到window size的整数倍
         pad_l = pad_t = 0
-        pad_r = (self.window_size - W % self.window_size) % self.window_size
+        pad_r = (self.window_size - W % self.window_size) % self.window_size # 补 零
         pad_b = (self.window_size - H % self.window_size) % self.window_size
         x = F.pad(x, (0, 0, pad_l, pad_r, pad_t, pad_b))
         _, Hp, Wp, _ = x.shape
