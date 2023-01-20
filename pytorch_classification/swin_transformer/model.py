@@ -104,8 +104,9 @@ class PatchEmbed(nn.Module):
         # 如果输入图片的H，W不是patch_size的整数倍，需要进行padding
         pad_input = (H % self.patch_size[0] != 0) or (W % self.patch_size[1] != 0)
         if pad_input:
-            # to pad the last 3 dimensions,
+            # to pad the last 3 dimensions, 
             # (W_left, W_right, H_top,H_bottom, C_front, C_back)
+            # 在图片的右边和底部 补零
             x = F.pad(x, (0, self.patch_size[1] - W % self.patch_size[1],
                           0, self.patch_size[0] - H % self.patch_size[0],
                           0, 0))
@@ -116,7 +117,7 @@ class PatchEmbed(nn.Module):
         # flatten: [B, C, H, W] -> [B, C, HW]
         # transpose: [B, C, HW] -> [B, HW, C]
         x = x.flatten(2).transpose(1, 2)
-        x = self.norm(x)
+        x = self.norm(x) # layernorm 层对 C 维度进行处理
         return x, H, W
 
 
@@ -159,8 +160,8 @@ class PatchMerging(nn.Module):
         x = torch.cat([x0, x1, x2, x3], -1)  # [B, H/2, W/2, 4*C]
         x = x.view(B, -1, 4 * C)  # [B, H/2*W/2, 4*C]
 
-        x = self.norm(x)
-        x = self.reduction(x)  # [B, H/2*W/2, 2*C]
+        x = self.norm(x) # 对channel进行norm处理
+        x = self.reduction(x)  # [B, H/2*W/2, 2*C] 用全连接层把 4*C 调整乘 2*C
 
         return x
 
@@ -411,7 +412,7 @@ class BasicLayer(nn.Module):
                 dim=dim,
                 num_heads=num_heads,
                 window_size=window_size,
-                shift_size=0 if (i % 2 == 0) else self.shift_size,
+                shift_size=0 if (i % 2 == 0) else self.shift_size, # 确定是使用wmsa 还是swmsa
                 mlp_ratio=mlp_ratio,
                 qkv_bias=qkv_bias,
                 drop=drop,
@@ -454,12 +455,13 @@ class BasicLayer(nn.Module):
 
     def forward(self, x, H, W):
         attn_mask = self.create_mask(x, H, W)  # [nW, Mh*Mw, Mh*Mw]
-        for blk in self.blocks:
+        for blk in self.blocks: #通过遍历把输入传给每个Swim transformer block得到输出
             blk.H, blk.W = H, W
             if not torch.jit.is_scripting() and self.use_checkpoint:
                 x = checkpoint.checkpoint(blk, x, attn_mask)
             else:
-                x = blk(x, attn_mask)
+                x = blk(x, attn_mask) 
+                
         if self.downsample is not None:
             x = self.downsample(x, H, W)
             H, W = (H + 1) // 2, (W + 1) // 2
@@ -489,6 +491,7 @@ class SwinTransformer(nn.Module):
         patch_norm (bool): If True, add normalization after patch embedding. Default: True
         use_checkpoint (bool): Whether to use checkpointing to save memory. Default: False
     """
+    # patch_size是下采样。patch partision. embed_dim 结构框架图里面的C
 
     def __init__(self, patch_size=4, in_chans=3, num_classes=1000,
                  embed_dim=96, depths=(2, 2, 6, 2), num_heads=(3, 6, 12, 24),
@@ -512,7 +515,7 @@ class SwinTransformer(nn.Module):
             norm_layer=norm_layer if self.patch_norm else None)
         self.pos_drop = nn.Dropout(p=drop_rate)
 
-        # stochastic depth
+        # stochastic depth。 swim transformer block中一系列的 drop_out 是从零开始递增的
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
 
         # build layers
@@ -520,7 +523,7 @@ class SwinTransformer(nn.Module):
         for i_layer in range(self.num_layers):
             # 注意这里构建的stage和论文图中有些差异
             # 这里的stage不包含该stage的patch_merging层，包含的是下个stage的
-            layers = BasicLayer(dim=int(embed_dim * 2 ** i_layer),
+            layers = BasicLayer(dim=int(embed_dim * 2 ** i_layer), #channel方向上的深度。i_layer 从零开始，依次乘2
                                 depth=depths[i_layer],
                                 num_heads=num_heads[i_layer],
                                 window_size=window_size,
@@ -528,17 +531,19 @@ class SwinTransformer(nn.Module):
                                 qkv_bias=qkv_bias,
                                 drop=drop_rate,
                                 attn_drop=attn_drop_rate,
-                                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
+                                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])], #每一个transformer用到的
                                 norm_layer=norm_layer,
-                                downsample=PatchMerging if (i_layer < self.num_layers - 1) else None,
+                                downsample=PatchMerging if (i_layer < self.num_layers - 1) else None, # self.num_layers=4,构建前三个Stage时候使用下采样
+                                # swim transformer block 和 patch merging 作为一个整体
                                 use_checkpoint=use_checkpoint)
             self.layers.append(layers)
 
         self.norm = norm_layer(self.num_features)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
-        self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
+        self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity() 
+        # self.num_features是stage4输出特征矩阵的channel， 输出的节点个数 num_classes
 
-        self.apply(self._init_weights)
+        self.apply(self._init_weights) #调用这个方法 self._init_weights
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -558,8 +563,8 @@ class SwinTransformer(nn.Module):
             x, H, W = layer(x, H, W)
 
         x = self.norm(x)  # [B, L, C]
-        x = self.avgpool(x.transpose(1, 2))  # [B, C, 1]
-        x = torch.flatten(x, 1)
+        x = self.avgpool(x.transpose(1, 2))  # [B, C, 1] x转换维度后是 [B, C, L]，avgpool后，L变为1
+        x = torch.flatten(x, 1) # [B, C]
         x = self.head(x)
         return x
 
