@@ -210,7 +210,7 @@ class WindowAttention(nn.Module):
         self.window_size = window_size  # [Mh, Mw]
         self.num_heads = num_heads
         head_dim = dim // num_heads
-        self.scale = head_dim ** -0.5
+        self.scale = head_dim ** -0.5 # 根号d
 
         # define a parameter table of relative position bias
         self.relative_position_bias_table = nn.Parameter(
@@ -281,7 +281,7 @@ class WindowAttention(nn.Module):
         # transpose: -> [batch_size*num_windows, Mh*Mw, num_heads, embed_dim_per_head]
         # reshape: -> [batch_size*num_windows, Mh*Mw, total_embed_dim]
         x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
-        x = self.proj(x)
+        x = self.proj(x) # 线性层。对多个header进行线性融合
         x = self.proj_drop(x)
         return x
 
@@ -361,7 +361,7 @@ class SwinTransformerBlock(nn.Module):
 
         # reverse cyclic shift
         if self.shift_size > 0:
-            x = torch.roll(shifted_x, shifts=(self.shift_size, self.shift_size), dims=(1, 2))
+            x = torch.roll(shifted_x, shifts=(self.shift_size, self.shift_size), dims=(1, 2)) # (B, H, W, C) 为负：从上往下移，从左往右移
         else:
             x = shifted_x
 
@@ -405,7 +405,7 @@ class BasicLayer(nn.Module):
         self.depth = depth
         self.window_size = window_size
         self.use_checkpoint = use_checkpoint
-        self.shift_size = window_size // 2
+        self.shift_size = window_size // 2 # 在swimtransformer中 如果用SWMAS shifted window需要向下向右移动一些像素
 
         # build blocks
         self.blocks = nn.ModuleList([
@@ -499,7 +499,7 @@ class SwinTransformer(nn.Module):
                  window_size=7, mlp_ratio=4., qkv_bias=True,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
                  norm_layer=nn.LayerNorm, patch_norm=True,
-                 use_checkpoint=False, **kwargs):
+                 use_checkpoint=False, **kwargs):  # attn_drop_rate对应multihead, drop_rate对应patch embed, drop_path_rate对应每一个selftransformer(递增从零开始)
         super().__init__()
 
         self.num_classes = num_classes
@@ -535,7 +535,7 @@ class SwinTransformer(nn.Module):
                                 drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])], #每一个transformer用到的
                                 norm_layer=norm_layer,
                                 downsample=PatchMerging if (i_layer < self.num_layers - 1) else None, # self.num_layers=4,构建前三个Stage时候使用下采样
-                                # swim transformer block 和 patch merging 作为一个整体
+                                # swim transformer block 和 patch merging 作为一个整体。第四个stage没有 patch merging
                                 use_checkpoint=use_checkpoint)
             self.layers.append(layers)
 
@@ -544,7 +544,7 @@ class SwinTransformer(nn.Module):
         self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity() 
         # self.num_features是stage4输出特征矩阵的channel， 输出的节点个数 num_classes
 
-        self.apply(self._init_weights) #调用这个方法 self._init_weights
+        self.apply(self._init_weights) #调用这个方法 self._init_weights 进行权重初始化
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -557,13 +557,13 @@ class SwinTransformer(nn.Module):
 
     def forward(self, x):
         # x: [B, L, C]
-        x, H, W = self.patch_embed(x)
+        x, H, W = self.patch_embed(x) # 对图像进行下采样4倍
         x = self.pos_drop(x)
 
         for layer in self.layers:
             x, H, W = layer(x, H, W)
 
-        x = self.norm(x)  # [B, L, C]
+        x = self.norm(x)  # [B, L, C] 
         x = self.avgpool(x.transpose(1, 2))  # [B, C, 1] x转换维度后是 [B, C, L]，avgpool后，L变为1
         x = torch.flatten(x, 1) # [B, C]
         x = self.head(x)
