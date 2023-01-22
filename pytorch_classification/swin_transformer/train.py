@@ -64,15 +64,15 @@ def main(args):
     if args.weights != "":
         assert os.path.exists(args.weights), "weights file: '{}' not exist.".format(args.weights)
         weights_dict = torch.load(args.weights, map_location=device)["model"]
-        # 删除有关分类类别的权重
+        # 删除有关分类类别的权重。head 就是最后一层全连接层
         for k in list(weights_dict.keys()):
             if "head" in k:
-                del weights_dict[k]
+                del weights_dict[k] # 自己的分类类别数和预训练的不一样
         print(model.load_state_dict(weights_dict, strict=False))
 
     if args.freeze_layers:
         for name, para in model.named_parameters():
-            # 除head外，其他权重全部冻结
+            # 除head外，其他权重全部冻结。除最后一个全连接层之外的
             if "head" not in name:
                 para.requires_grad_(False)
             else:
