@@ -136,7 +136,7 @@ class ConvNeXt(nn.Module):
 
         self.stages = nn.ModuleList()  # 4 feature resolution stages, each consisting of multiple blocks
         dp_rates = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
-        cur = 0
+        cur = 0 # 表示当前这个stage前已经构建好的block
         # 构建每个stage中堆叠的block
         for i in range(4):
             stage = nn.Sequential(
@@ -144,12 +144,12 @@ class ConvNeXt(nn.Module):
                   for j in range(depths[i])]
             )
             self.stages.append(stage)
-            cur += depths[i]
+            cur += depths[i] # depths[i]当前stage构建的block数
 
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6)  # final norm layer
         self.head = nn.Linear(dims[-1], num_classes)
-        self.apply(self._init_weights)
-        self.head.weight.data.mul_(head_init_scale)
+        self.apply(self._init_weights) #对当前的每一个子模块进行初始化
+        self.head.weight.data.mul_(head_init_scale) # 对 head的 weight和bias 乘上 head_init_scale
         self.head.bias.data.mul_(head_init_scale)
 
     def _init_weights(self, m):
@@ -166,7 +166,7 @@ class ConvNeXt(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.forward_features(x)
-        x = self.head(x)
+        x = self.head(x) #最后全连接层
         return x
 
 
