@@ -79,11 +79,11 @@ def main(args):
             else:
                 print("training {}".format(name))
 
-    # pg = [p for p in model.parameters() if p.requires_grad]
+    # pg = [p for p in model.parameters() if p.requires_grad] 寻找当前模型中所有可训练的参数
     pg = get_params_groups(model, weight_decay=args.wd)
     optimizer = optim.AdamW(pg, lr=args.lr, weight_decay=args.wd)
     lr_scheduler = create_lr_scheduler(optimizer, len(train_loader), args.epochs,
-                                       warmup=True, warmup_epochs=1)
+                                       warmup=True, warmup_epochs=1) #学习率
 
     best_acc = 0.
     for epoch in range(args.epochs):
@@ -131,7 +131,8 @@ if __name__ == '__main__':
     parser.add_argument('--weights', type=str, default='./convnext_tiny_1k_224_ema.pth',
                         help='initial weights path')
     # 是否冻结head以外所有权重
-    parser.add_argument('--freeze-layers', type=bool, default=False)
+    parser.add_argument('--freeze-layers', type=bool, default=False) #default= true,冻结head以外所有权重; 如果default=False，训练所有权重。
+    # 如果只微调最后一层，parser.add_argument('--lr', type=float, default=5e-4）中default调整成 5e-3，5e-2
     parser.add_argument('--device', default='cuda:0', help='device id (i.e. 0 or 0,1 or cpu)')
 
     opt = parser.parse_args()
