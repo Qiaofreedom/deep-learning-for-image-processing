@@ -116,7 +116,7 @@ class ConvLayer(nn.Module):
         return self.block(x)
 
 
-class InvertedResidual(nn.Module):
+class InvertedResidual(nn.Module): #MVI2 模块
     """
     This class implements the inverted residual block, as described in `MobileNetv2 <https://arxiv.org/abs/1801.04381>`_ paper
 
