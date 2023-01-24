@@ -150,7 +150,8 @@ def main(args):
                          f"train_loss: {mean_loss:.4f}\n" \
                          f"lr: {lr:.6f}\n"
             f.write(train_info + val_info + "\n\n")
-
+            
+        # 保存模型的参数
         save_file = {"model": model.state_dict(),
                      "optimizer": optimizer.state_dict(),
                      "lr_scheduler": lr_scheduler.state_dict(),
