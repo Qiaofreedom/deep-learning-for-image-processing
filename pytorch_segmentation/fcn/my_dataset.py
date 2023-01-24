@@ -44,7 +44,7 @@ class VOCSegmentation(data.Dataset):
 
     @staticmethod
     def collate_fn(batch):
-        images, targets = list(zip(*batch))
+        images, targets = list(zip(*batch)) # images 放在一个列表里面，targets放在一个列表里面
         batched_imgs = cat_list(images, fill_value=0)
         batched_targets = cat_list(targets, fill_value=255)
         return batched_imgs, batched_targets
@@ -53,11 +53,11 @@ class VOCSegmentation(data.Dataset):
 def cat_list(images, fill_value=0):
     # 计算该batch数据中，channel, h, w的最大值
     max_size = tuple(max(s) for s in zip(*[img.shape for img in images]))
-    batch_shape = (len(images),) + max_size
-    batched_imgs = images[0].new(*batch_shape).fill_(fill_value)
+    batch_shape = (len(images),) + max_size # 加上一个batch维度
+    batched_imgs = images[0].new(*batch_shape).fill_(fill_value) #用.new构建一个新的tensor,(4维)。里面的值都为0。images[0]是随便取一个tensor。images里面都是tensor.
     for img, pad_img in zip(images, batched_imgs):
-        pad_img[..., :img.shape[-2], :img.shape[-1]].copy_(img)
-    return batched_imgs
+        pad_img[..., :img.shape[-2], :img.shape[-1]].copy_(img) #pad_img是batched_imgs在batch维度的切片。将预处理后的img 复制到 pad_img
+    return batched_imgs #最后将不同大小的图片 打包成一个tensor.输入到网络中
 
 
 # dataset = VOCSegmentation(voc_root="/data/", transforms=get_transform(train=True))
