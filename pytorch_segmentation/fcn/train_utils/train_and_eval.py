@@ -27,7 +27,7 @@ def evaluate(model, data_loader, device, num_classes):
             output = model(image)
             output = output['out']
 
-            confmat.update(target.flatten(), output.argmax(1).flatten()) # 1对应channel
+            confmat.update(target.flatten(), output.argmax(1).flatten()) # 1对应channel。就是每个像素对应预测值最大的索引。flatten后的结果是【0，1，1，2，2】
 
         confmat.reduce_from_all_processes()
 
