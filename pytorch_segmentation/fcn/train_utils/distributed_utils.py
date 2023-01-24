@@ -76,16 +76,16 @@ class ConfusionMatrix(object):
         self.mat = None
 
     def update(self, a, b):
-        n = self.num_classes
+        n = self.num_classes #0 到n-1
         if self.mat is None:
             # 创建混淆矩阵
             self.mat = torch.zeros((n, n), dtype=torch.int64, device=a.device)
         with torch.no_grad():
             # 寻找GT中为目标的像素索引
-            k = (a >= 0) & (a < n)
+            k = (a >= 0) & (a < n) #忽略像素为255的位置
             # 统计像素真实类别a[k]被预测成类别b[k]的个数(这里的做法很巧妙)
-            inds = n * a[k].to(torch.int64) + b[k]
-            self.mat += torch.bincount(inds, minlength=n**2).reshape(n, n)
+            inds = n * a[k].to(torch.int64) + b[k] 
+            self.mat += torch.bincount(inds, minlength=n**2).reshape(n, n) #得到当前混淆矩阵的数值
 
     def reset(self):
         if self.mat is not None:
@@ -94,9 +94,9 @@ class ConfusionMatrix(object):
     def compute(self):
         h = self.mat.float()
         # 计算全局预测准确率(混淆矩阵的对角线为预测正确的个数)
-        acc_global = torch.diag(h).sum() / h.sum()
+        acc_global = torch.diag(h).sum() / h.sum() # h.sum()混淆矩阵所有元素
         # 计算每个类别的准确率
-        acc = torch.diag(h) / h.sum(1)
+        acc = torch.diag(h) / h.sum(1) # 在ppt中对每一列求和，在代码中就是对每一行求和。sum(1)就是消除列，对行进行操作
         # 计算每个类别预测与真实目标的iou
         iu = torch.diag(h) / (h.sum(1) + h.sum(0) - torch.diag(h))
         return acc_global, acc, iu
@@ -119,7 +119,7 @@ class ConfusionMatrix(object):
                 acc_global.item() * 100,
                 ['{:.1f}'.format(i) for i in (acc * 100).tolist()],
                 ['{:.1f}'.format(i) for i in (iu * 100).tolist()],
-                iu.mean().item() * 100)
+                iu.mean().item() * 100) #最后一个是 每一个类别iou的均值
 
 
 class MetricLogger(object):
