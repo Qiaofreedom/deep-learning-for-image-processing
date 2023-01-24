@@ -96,7 +96,7 @@ def main(args):
                                                num_workers=num_workers,
                                                shuffle=True,
                                                pin_memory=True,
-                                               collate_fn=train_dataset.collate_fn)
+                                               collate_fn=train_dataset.collate_fn) # collate_fn数据打包的方法
 
     val_loader = torch.utils.data.DataLoader(val_dataset,
                                              batch_size=1,
