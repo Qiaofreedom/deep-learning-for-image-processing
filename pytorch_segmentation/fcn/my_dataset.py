@@ -16,9 +16,9 @@ class VOCSegmentation(data.Dataset):
         txt_path = os.path.join(root, "ImageSets", "Segmentation", txt_name)
         assert os.path.exists(txt_path), "file '{}' does not exist.".format(txt_path)
         with open(os.path.join(txt_path), "r") as f:
-            file_names = [x.strip() for x in f.readlines() if len(x.strip()) > 0]
+            file_names = [x.strip() for x in f.readlines() if len(x.strip()) > 0] #遍历读取每一行。如果不为空行就读取信息。strip()方法去掉前后空格
 
-        self.images = [os.path.join(image_dir, x + ".jpg") for x in file_names]
+        self.images = [os.path.join(image_dir, x + ".jpg") for x in file_names] #所有数据集图片的路径。绝对路径
         self.masks = [os.path.join(mask_dir, x + ".png") for x in file_names]
         assert (len(self.images) == len(self.masks))
         self.transforms = transforms
@@ -32,7 +32,7 @@ class VOCSegmentation(data.Dataset):
             tuple: (image, target) where target is the image segmentation.
         """
         img = Image.open(self.images[index]).convert('RGB')
-        target = Image.open(self.masks[index])
+        target = Image.open(self.masks[index]) # 默认就是一个调色板模式。单通道图片
 
         if self.transforms is not None:
             img, target = self.transforms(img, target)
