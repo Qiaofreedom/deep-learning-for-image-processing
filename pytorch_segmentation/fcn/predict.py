@@ -38,7 +38,7 @@ def main():
     model = fcn_resnet50(aux=aux, num_classes=classes+1)
 
     # delete weights about aux_classifier
-    weights_dict = torch.load(weights_path, map_location='cpu')['model']
+    weights_dict = torch.load(weights_path, map_location='cpu')['model'] # 这里还没有载入，删除掉没有用的部分，才载入，不然会报错
     for k in list(weights_dict.keys()):
         if "aux" in k:
             del weights_dict[k]
@@ -57,12 +57,12 @@ def main():
                                                               std=(0.229, 0.224, 0.225))])
     img = data_transform(original_img)
     # expand batch dimension
-    img = torch.unsqueeze(img, dim=0)
+    img = torch.unsqueeze(img, dim=0) # 增加batch
 
     model.eval()  # 进入验证模式
     with torch.no_grad():
         # init model
-        img_height, img_width = img.shape[-2:]
+        img_height, img_width = img.shape[-2:] #先用全部为零的图片 初始化
         init_img = torch.zeros((1, 3, img_height, img_width), device=device)
         model(init_img)
 
@@ -71,11 +71,11 @@ def main():
         t_end = time_synchronized()
         print("inference+NMS time: {}".format(t_end - t_start))
 
-        prediction = output['out'].argmax(1).squeeze(0)
+        prediction = output['out'].argmax(1).squeeze(0) # 对应预测结果的主输出。squeeze压缩掉batch维度。argmax为每一个像素指认类别
         prediction = prediction.to("cpu").numpy().astype(np.uint8)
         mask = Image.fromarray(prediction)
-        mask.putpalette(pallette)
-        mask.save("test_result.png")
+        mask.putpalette(pallette) #设置调色板
+        mask.save("test_result.png")#保存颜色和pascol的目标标注的颜色一样。改颜色要去putpalette的jason里面改
 
 
 if __name__ == '__main__':
