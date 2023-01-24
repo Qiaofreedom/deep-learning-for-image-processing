@@ -90,7 +90,7 @@ def main(args):
                                   transforms=get_transform(train=False),
                                   txt_name="val.txt")
 
-    num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
+    num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8]) #看当前设备cpu的核数。这里是三个参数：os.cpu_count()，batch_size，8
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=batch_size,
                                                num_workers=num_workers,
@@ -108,7 +108,7 @@ def main(args):
     model.to(device)
 
     params_to_optimize = [
-        {"params": [p for p in model.backbone.parameters() if p.requires_grad]},
+        {"params": [p for p in model.backbone.parameters() if p.requires_grad]}, #p.requires_grad 指没有冻结的权重全部提取出来
         {"params": [p for p in model.classifier.parameters() if p.requires_grad]}
     ]
 
@@ -117,7 +117,7 @@ def main(args):
         params_to_optimize.append({"params": params, "lr": args.lr * 10})
 
     optimizer = torch.optim.SGD(
-        params_to_optimize,
+        params_to_optimize, #传入要训练的参数
         lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
     )
 
@@ -127,7 +127,7 @@ def main(args):
     lr_scheduler = create_lr_scheduler(optimizer, len(train_loader), args.epochs, warmup=True)
 
     if args.resume:
-        checkpoint = torch.load(args.resume, map_location='cpu')
+        checkpoint = torch.load(args.resume, map_location='cpu') # 载入最近一次保存的权重 args.resume
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
