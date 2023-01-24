@@ -34,21 +34,21 @@ class IntermediateLayerGetter(nn.ModuleDict):
     }
 
     def __init__(self, model: nn.Module, return_layers: Dict[str, str]) -> None:
-        if not set(return_layers).issubset([name for name, _ in model.named_children()]):
+        if not set(return_layers).issubset([name for name, _ in model.named_children()]): #判断return_layers的键值 是否在 model.named_children() 中
             raise ValueError("return_layers are not present in model")
         orig_return_layers = return_layers
-        return_layers = {str(k): str(v) for k, v in return_layers.items()}
+        return_layers = {str(k): str(v) for k, v in return_layers.items()} # return_layers.items()得到键值和value
 
         # 重新构建backbone，将没有使用到的模块全部删掉
         layers = OrderedDict()
-        for name, module in model.named_children():
+        for name, module in model.named_children(): #遍历model的子模块
             layers[name] = module
             if name in return_layers:
                 del return_layers[name]
             if not return_layers:
                 break
 
-        super(IntermediateLayerGetter, self).__init__(layers)
+        super(IntermediateLayerGetter, self).__init__(layers) #将有序字典 传到 super方法的 __init__ 中
         self.return_layers = orig_return_layers
 
     def forward(self, x: Tensor) -> Dict[str, Tensor]:
@@ -85,10 +85,10 @@ class FCN(nn.Module):
     def forward(self, x: Tensor) -> Dict[str, Tensor]:
         input_shape = x.shape[-2:]
         # contract: features is a dict of tensors
-        features = self.backbone(x)
+        features = self.backbone(x) # 返回的是一个有序字典
 
         result = OrderedDict()
-        x = features["out"]
+        x = features["out"] #提取的是layer4的输出
         x = self.classifier(x)
         # 原论文中虽然使用的是ConvTranspose2d，但权重是冻结的，所以就是一个bilinear插值
         x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
@@ -106,7 +106,7 @@ class FCN(nn.Module):
 
 class FCNHead(nn.Sequential):
     def __init__(self, in_channels, channels):
-        inter_channels = in_channels // 4
+        inter_channels = in_channels // 4 # 通过第一个卷积后的通道数
         layers = [
             nn.Conv2d(in_channels, inter_channels, 3, padding=1, bias=False),
             nn.BatchNorm2d(inter_channels),
