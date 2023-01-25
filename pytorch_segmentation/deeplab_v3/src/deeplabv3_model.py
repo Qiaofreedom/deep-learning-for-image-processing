@@ -119,10 +119,10 @@ class FCNHead(nn.Sequential):
         )
 
 
-class ASPPConv(nn.Sequential):
+class ASPPConv(nn.Sequential): # 一个普通的膨胀卷积层
     def __init__(self, in_channels: int, out_channels: int, dilation: int) -> None:
         super(ASPPConv, self).__init__(
-            nn.Conv2d(in_channels, out_channels, 3, padding=dilation, dilation=dilation, bias=False),
+            nn.Conv2d(in_channels, out_channels, 3, padding=dilation, dilation=dilation, bias=False), #膨胀卷积。padding和dilation是一样的
             nn.BatchNorm2d(out_channels),
             nn.ReLU()
         )
@@ -145,8 +145,10 @@ class ASPPPooling(nn.Sequential):
 
 
 class ASPP(nn.Module):
-    def __init__(self, in_channels: int, atrous_rates: List[int], out_channels: int = 256) -> None:
+    def __init__(self, in_channels: int, atrous_rates: List[int], out_channels: int = 256) -> None: 
+        # in_channel输入特征层channel,atrous_rates膨胀分支的系数，out_channels通过膨胀卷积后将channel调整为多少
         super(ASPP, self).__init__()
+        #第一个分支
         modules = [
             nn.Sequential(nn.Conv2d(in_channels, out_channels, 1, bias=False),
                           nn.BatchNorm2d(out_channels),
@@ -159,10 +161,12 @@ class ASPP(nn.Module):
 
         modules.append(ASPPPooling(in_channels, out_channels))
 
-        self.convs = nn.ModuleList(modules)
-
+        self.convs = nn.ModuleList(modules) # 构建好了五个分支
+        
+        # 对应concat拼接后的1*1卷积层
         self.project = nn.Sequential(
-            nn.Conv2d(len(self.convs) * out_channels, out_channels, 1, bias=False),
+            nn.Conv2d(len(self.convs) * out_channels, out_channels, 1, bias=False), # len(self.convs) * out_channels分支channel之和（五个分支）。
+            # 因为是在深度方向上拼接的
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.Dropout(0.5)
@@ -172,14 +176,14 @@ class ASPP(nn.Module):
         _res = []
         for conv in self.convs:
             _res.append(conv(x))
-        res = torch.cat(_res, dim=1)
+        res = torch.cat(_res, dim=1) # 在深度方向拼接
         return self.project(res)
 
 
 class DeepLabHead(nn.Sequential):
     def __init__(self, in_channels: int, num_classes: int) -> None:
         super(DeepLabHead, self).__init__(
-            ASPP(in_channels, [12, 24, 36]),
+            ASPP(in_channels, [12, 24, 36]), # backbone输出特征层的channel
             nn.Conv2d(256, 256, 3, padding=1, bias=False),
             nn.BatchNorm2d(256),
             nn.ReLU(),
@@ -209,7 +213,7 @@ def deeplabv3_resnet50(aux, num_classes=21, pretrain_backbone=False):
     if aux:
         aux_classifier = FCNHead(aux_inplanes, num_classes)
 
-    classifier = DeepLabHead(out_inplanes, num_classes)
+    classifier = DeepLabHead(out_inplanes, num_classes) # out_inplanes 对应输出特征层的channel,num_classes对应分类类别数
 
     model = DeepLabV3(backbone, classifier, aux_classifier)
 
