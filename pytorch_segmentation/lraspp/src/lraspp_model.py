@@ -120,14 +120,14 @@ class LRASPPHead(nn.Module):
         self.low_classifier = nn.Conv2d(low_channels, num_classes, 1)
         self.high_classifier = nn.Conv2d(inter_channels, num_classes, 1)
 
-    def forward(self, inputs: Dict[str, Tensor]) -> Tensor:
+    def forward(self, inputs: Dict[str, Tensor]) -> Tensor: # inputs是重构的backbone。输出的是字典形式
         low = inputs["low"]
         high = inputs["high"]
 
         x = self.cbr(high)
         s = self.scale(high)
         x = x * s
-        x = F.interpolate(x, size=low.shape[-2:], mode="bilinear", align_corners=False)
+        x = F.interpolate(x, size=low.shape[-2:], mode="bilinear", align_corners=False) #上采样。LR-ASPPhead的输出
 
         return self.low_classifier(low) + self.high_classifier(x)
 
@@ -146,6 +146,7 @@ def lraspp_mobilenetv3_large(num_classes=21, pretrain_backbone=False):
     # Gather the indices of blocks which are strided. These are the locations of C1, ..., Cn-1 blocks.
     # The first and last blocks are always included because they are the C0 (conv1) and Cn.
     stage_indices = [0] + [i for i, b in enumerate(backbone) if getattr(b, "is_strided", False)] + [len(backbone) - 1]
+    # 看b这个层结构里面 is_strided 这个参数。如果是true,就把对应的索引添加到列表中
     low_pos = stage_indices[-4]  # use C2 here which has output_stride = 8
     high_pos = stage_indices[-1]  # use C5 which has output_stride = 16
     low_channels = backbone[low_pos].out_channels
