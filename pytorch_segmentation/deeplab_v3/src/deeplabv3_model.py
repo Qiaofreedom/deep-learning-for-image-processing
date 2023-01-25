@@ -91,7 +91,7 @@ class DeepLabV3(nn.Module):
         features = self.backbone(x)
 
         result = OrderedDict()
-        x = features["out"]
+        x = features["out"] #提取主输出
         x = self.classifier(x)
         # 使用双线性插值还原回原图尺度
         x = F.interpolate(x, size=input_shape, mode='bilinear', align_corners=False)
