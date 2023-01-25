@@ -138,8 +138,8 @@ class DiceCoefficient(object):
         if self.count is None:
             self.count = torch.zeros(1, dtype=pred.dtype, device=pred.device)
         # compute the Dice score, ignoring background
-        pred = F.one_hot(pred.argmax(dim=1), self.num_classes).permute(0, 3, 1, 2).float()
-        dice_target = build_target(target, self.num_classes, self.ignore_index)
+        pred = F.one_hot(pred.argmax(dim=1), self.num_classes).permute(0, 3, 1, 2).float() #针对每一个像素找到所属概率最大的类别
+        dice_target = build_target(target, self.num_classes, self.ignore_index) #将target也转换成one_hot模式
         self.cumulative_dice += multiclass_dice_coeff(pred[:, 1:], dice_target[:, 1:], ignore_index=self.ignore_index)
         self.count += 1
 
@@ -148,7 +148,7 @@ class DiceCoefficient(object):
         if self.count == 0:
             return 0
         else:
-            return self.cumulative_dice / self.count
+            return self.cumulative_dice / self.count #用累积的 dice coefficient/累计的样本个数
 
     def reset(self):
         if self.cumulative_dice is not None:
