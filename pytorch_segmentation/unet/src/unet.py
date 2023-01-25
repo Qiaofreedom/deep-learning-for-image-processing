@@ -46,7 +46,7 @@ class Up(nn.Module):
         x1 = F.pad(x1, [diff_x // 2, diff_x - diff_x // 2,
                         diff_y // 2, diff_y - diff_y // 2])
 
-        x = torch.cat([x2, x1], dim=1)
+        x = torch.cat([x2, x1], dim=1) #拼接之前保证x1,x2的高宽一致
         x = self.conv(x)
         return x
 
@@ -73,7 +73,7 @@ class UNet(nn.Module):
         self.down1 = Down(base_c, base_c * 2)
         self.down2 = Down(base_c * 2, base_c * 4)
         self.down3 = Down(base_c * 4, base_c * 8)
-        factor = 2 if bilinear else 1
+        factor = 2 if bilinear else 1 #如果使用转置矩阵，则通道没有改变，为512.如果是双线性差值，则通道会翻倍为1024
         self.down4 = Down(base_c * 8, base_c * 16 // factor)
         self.up1 = Up(base_c * 16, base_c * 8 // factor, bilinear)
         self.up2 = Up(base_c * 8, base_c * 4 // factor, bilinear)
@@ -91,6 +91,6 @@ class UNet(nn.Module):
         x = self.up2(x, x3)
         x = self.up3(x, x2)
         x = self.up4(x, x1)
-        logits = self.out_conv(x)
+        logits = self.out_conv(x) #最后通过1*1的卷积输出
 
-        return {"out": logits}
+        return {"out": logits} # 通过字典返回
