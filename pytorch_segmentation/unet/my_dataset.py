@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 
 
 class DriveDataset(Dataset):
-    def __init__(self, root: str, train: bool, transforms=None):
+    def __init__(self, root: str, train: bool, transforms=None): #train 如果为true,载入的是训练集，如果是false，载入的是测试集
         super(DriveDataset, self).__init__()
         self.flag = "training" if train else "test"
         data_root = os.path.join(root, "DRIVE", self.flag)
@@ -29,25 +29,27 @@ class DriveDataset(Dataset):
 
     def __getitem__(self, idx):
         img = Image.open(self.img_list[idx]).convert('RGB')
-        manual = Image.open(self.manual[idx]).convert('L')
-        manual = np.array(manual) / 255
-        roi_mask = Image.open(self.roi_mask[idx]).convert('L')
-        roi_mask = 255 - np.array(roi_mask)
-        mask = np.clip(manual + roi_mask, a_min=0, a_max=255)
-
+        manual = Image.open(self.manual[idx]).convert('L') #灰度图片
+        manual = np.array(manual) / 255 # 在语义分割中，前景索引要从1开始。背景为0.
+        roi_mask = Image.open(self.roi_mask[idx]).convert('L') # self.roi_mask 是感兴趣的区域为1，不感兴趣的为0
+        roi_mask = 255 - np.array(roi_mask) # 感兴趣的区域为0，不感兴趣的为1
+        mask = np.clip(manual + roi_mask, a_min=0, a_max=255) # 把不感兴趣的设置为255，这样就可以在计算损失时把所有255的忽略掉
+        # np.clip设置 上下限。最后前景1，背景0， 不感兴趣255
+        
+        
         # 这里转回PIL的原因是，transforms中是对PIL数据进行处理
         mask = Image.fromarray(mask)
 
         if self.transforms is not None:
             img, mask = self.transforms(img, mask)
 
-        return img, mask
+        return img, mask # 这里的mask和 self.roi_mask 不一样。这里的mask是groud truth
 
     def __len__(self):
         return len(self.img_list)
 
     @staticmethod
-    def collate_fn(batch):
+    def collate_fn(batch): #将图片打包成batch
         images, targets = list(zip(*batch))
         batched_imgs = cat_list(images, fill_value=0)
         batched_targets = cat_list(targets, fill_value=255)
