@@ -11,7 +11,7 @@ def criterion(inputs, target, loss_weight=None, num_classes: int = 2, dice: bool
         loss = nn.functional.cross_entropy(x, target, ignore_index=ignore_index, weight=loss_weight)
         if dice is True:
             dice_target = build_target(target, num_classes, ignore_index)
-            loss += dice_loss(x, dice_target, multiclass=True, ignore_index=ignore_index) 
+            loss += dice_loss(x, dice_target, multiclass=True, ignore_index=ignore_index) #dice_target是我们构建好的，x是网络预测
         losses[name] = loss
 
     if len(losses) == 1:
