@@ -6,15 +6,16 @@ def build_target(target: torch.Tensor, num_classes: int = 2, ignore_index: int =
     """build target for dice coefficient"""
     dice_target = target.clone()
     if ignore_index >= 0:
-        ignore_mask = torch.eq(target, ignore_index)
-        dice_target[ignore_mask] = 0
+        ignore_mask = torch.eq(target, ignore_index) # 寻找target为255的像素
+        dice_target[ignore_mask] = 0 #将255全部变成0
         # [N, H, W] -> [N, H, W, C]
-        dice_target = nn.functional.one_hot(dice_target, num_classes).float()
-        dice_target[ignore_mask] = ignore_index
+        dice_target = nn.functional.one_hot(dice_target, num_classes).float() 
+        #构建每个类别的ground truth.在两个不同的channel上。将原始的gt转换成针对每一个类别（2个）的GT
+        dice_target[ignore_mask] = ignore_index #将255的数值填充为255
     else:
         dice_target = nn.functional.one_hot(dice_target, num_classes).float()
 
-    return dice_target.permute(0, 3, 1, 2)
+    return dice_target.permute(0, 3, 1, 2) #将nn.functional.one_hot处理后的[N, H, W, C]转换成【N,C,H,W】
 
 
 def dice_coeff(x: torch.Tensor, target: torch.Tensor, ignore_index: int = -100, epsilon=1e-6):
