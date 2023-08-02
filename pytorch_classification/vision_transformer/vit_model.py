@@ -216,7 +216,7 @@ class VisionTransformer(nn.Module):
         # Representation layer
         if representation_size and not distilled: #传了representation就会构建 prelogits
             self.has_logits = True
-            self.num_features = representation_size
+            self.num_features = representation_size #输出节点
             self.pre_logits = nn.Sequential(OrderedDict([
                 ("fc", nn.Linear(embed_dim, representation_size)),
                 ("act", nn.Tanh())
