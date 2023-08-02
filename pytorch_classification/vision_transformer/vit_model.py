@@ -253,7 +253,7 @@ class VisionTransformer(nn.Module):
         x = self.blocks(x)
         x = self.norm(x)
         if self.dist_token is None:
-            return self.pre_logits(x[:, 0]) #用切片提取数据。取所有的batch数据上的索引为0的数
+            return self.pre_logits(x[:, 0]) #用切片提取数据。取所有的batch数据上num_patches的索引为0的数
         else:
             return x[:, 0], x[:, 1]
 
