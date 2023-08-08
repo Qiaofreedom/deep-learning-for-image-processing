@@ -134,7 +134,7 @@ class Mlp(nn.Module):
         return x
 
 
-class Block(nn.Module):
+class Block(nn.Module): #Encoder Block
     def __init__(self,
                  dim,
                  num_heads,
