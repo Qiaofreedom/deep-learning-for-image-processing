@@ -252,8 +252,8 @@ class VisionTransformer(nn.Module):
         x = self.pos_drop(x + self.pos_embed)
         x = self.blocks(x)
         x = self.norm(x)
-        if self.dist_token is None:
-            return self.pre_logits(x[:, 0]) #用切片提取数据。取所有的batch数据上第一维的索引为0的数。因为class是放在前面的
+        if self.dist_token is None: #用的是这里。【B, 1, 5000】extract class token
+            return self.pre_logits(x[:, 0]) #用切片提取数据。取所有的batch数据上第一维的索引为0的数。因为class是放在前面的.所以拿走的是
         else:
             return x[:, 0], x[:, 1]
 
