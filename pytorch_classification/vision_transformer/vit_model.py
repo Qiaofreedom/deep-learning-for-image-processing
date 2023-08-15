@@ -227,6 +227,7 @@ class VisionTransformer(nn.Module):
 
         # Classifier head(s)
         self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
+                     #self.num_features = self.embed_dim = embed_dim=768
         self.head_dist = None #和vit无关
         if distilled: #和vit无关
             self.head_dist = nn.Linear(self.embed_dim, self.num_classes) if num_classes > 0 else nn.Identity()
