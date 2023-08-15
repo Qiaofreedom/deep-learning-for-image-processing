@@ -87,7 +87,7 @@ class Attention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop_ratio)
 
     def forward(self, x):
-        # [batch_size, num_patches + 1, total_embed_dim]
+        # [batch_size, num_patches + 1, total_embed_dim] 。每个token的向量长度是768
         B, N, C = x.shape
 
         # qkv(): -> [batch_size, num_patches + 1, 3 * total_embed_dim]
